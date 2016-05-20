@@ -16,7 +16,10 @@ module.exports = function (grunt) {
             all: [
                 'Gruntfile.js',
                 'tasks/*.js',
-                '<%= nodeunit.tests %>'
+                'utils/*.js',
+                'test/utils/*.js',
+                'test/unit/*_test.js',
+                'test/integ/*_test.js'
             ],
             options: {
                 jshintrc: '.jshintrc'
@@ -49,6 +52,13 @@ module.exports = function (grunt) {
                     event: 'test/fixtures/event.json',
                     handler: 'myfunction'
                 }
+            },
+            package_folder_options: {
+                options: {
+                    package_folder: 'test/fixtures/package_folder_option',
+                    file_name: 'index.js',
+                    event: '../../../test/fixtures/event.json'
+                }
             }
         },
         lambda_package: {
@@ -76,7 +86,8 @@ module.exports = function (grunt) {
         },
         // Unit tests.
         nodeunit: {
-            tests: ['test/*_test.js']
+            unit: ['test/unit/*_test.js'],
+            integ: ['test/integ/*_test.js']
         }
     });
 

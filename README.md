@@ -41,26 +41,6 @@ dist
 
 [Read More](#default-options-1)
 
-### Include your dependencies in bundledDependencies
-
-npm packages which should be bundled with your lambda function must be included in the `bundledDependencies` of your
- `package.json`, for example:
-
-```json
-...
-"dependencies": {
-    "jquery": "2.1.1"
-},
-...
-"bundledDependencies": [
-    "jquery"
-]
-...
-```
-
-[Read More](#default-options-1)
-
-
 ## Authenticating to AWS
 
 This library supports providing credentials for AWS via an IAM Role, an AWS CLI profile, environment variables, a JSON file on disk, or passed in credentials.
@@ -170,9 +150,7 @@ Done, without errors.
 
 ### lambda_package
 
-This task generates a lambda package including npm dependencies using the default npm install functionality, therefore
- your dependencies must be included in the **bundledDependencies** section of your package.json to be included in the
- produced package.
+This task generates a lambda package including npm dependencies using the default npm install functionality.
 
 In your project's Gruntfile, add a section named `lambda_package` to the data object passed into `grunt.initConfig()`.
 
@@ -202,6 +180,13 @@ Default value: `true`
 
 Whether or not to timestamp the packages, if set to true the current date/time will be included in the zip name, if false
  then the package name will be constant and consist of just the package name and version.
+
+##### options.include_version
+Type: `Boolean`
+Default value: `true`
+
+Whether or not to include the NPM package version in the artifact package name. Set to false if you'd prefer a static
+ package file name regardless of the version.
 
 ##### options.package_folder
 Type: `String`
@@ -246,10 +231,7 @@ And the following in `package.json`
         "grunt": "0.4.*",
         "grunt-pack": "0.1.*",
         "grunt-aws-lambda": "0.1.*"
-    },
-    "bundledDependencies": [
-        "jquery"
-    ]
+    }
 }
 ```
 
@@ -285,9 +267,9 @@ In your project's Gruntfile, add a section named `lambda_deploy` to the data obj
 grunt.initConfig({
     lambda_deploy: {
         default: {
+            arn: 'arn:aws:lambda:us-east-1:123456781234:function:my-function',
             options: {
                 // Task-specific options go here.
-                arn: 'arn:aws:lambda:us-east-1:123456781234:function:my-function'
             }
         }
     },
@@ -384,10 +366,55 @@ Depending on your Lambda function, you might need to increase the timeout value.
 If you wish to increase this timeout set the value here.
 
 ##### options.memory
- Type: `Integer`
- Default value: `null`
- Sets the memory assigned to the function. If null then the current setting for the function will be used. Value is in
- MB and must be a multiple of 64.
+Type: `Integer`
+Default value: `null`
+
+Sets the memory assigned to the function. If null then the current setting for the function will be used. Value is in MB and must be a multiple of 64.
+
+##### options.handler
+Type: `String`
+Default value: `null`
+
+Sets the handler for your lambda function. If left null, the current setting will remain unchanged.
+
+##### options.enableVersioning
+Type: `boolean`
+Default value: `false`
+
+When enabled each deployment creates a new version.
+
+##### options.aliases
+Type: `String` or `Array`
+Default value: `null`
+
+If a string or an array of strings then creates these aliases. If versioning enabled then points to the created version,
+otherwise points to `$LATEST`.
+
+It is recommended that `enableVersioning` is also enabled when using this feature.
+
+Examples:
+
+Creates one `beta` alias:
+```js
+aliases: 'beta'
+```
+
+Creates two aliases, `alias1` and `alias2`:
+```js
+aliases: [
+    'alias1',
+    'alias2'
+]
+```
+
+##### options.enablePackageVersionAlias
+Type: `boolean`
+Default value: false
+
+When enabled creates a second alias using the NPM package version. When the NPM package version is bumped a new
+alias will be created, allowing you to keep the old alias available for backward compatibility.
+
+It is recommended that `enableVersioning` is also enabled when using this feature.
 
 #### Usage Examples
 
@@ -421,6 +448,44 @@ grunt.initConfig({
         }
     }
 });
+```
+
+##### Example with a beta and prod deployment configuration
+
+Deploy to beta with `deploy` and to prod with `deploy_prod`:
+
+```js
+grunt.initConfig({
+    lambda_invoke: {
+        default: {
+        }
+    },
+    lambda_deploy: {
+        default: {
+            options: {
+                aliases: 'beta',
+                enableVersioning: true
+            },
+            arn: 'arn:aws:lambda:us-east-1:123456789123:function:myfunction'
+        },
+        prod: {
+            options: {
+                aliases: 'prod',
+                enableVersioning: true
+            },
+            arn: 'arn:aws:lambda:us-east-1:123456789123:function:myfunction'
+        }
+    },
+    lambda_package: {
+        default: {
+        },
+        prod: {
+        }
+    }
+});
+
+grunt.registerTask('deploy', ['lambda_package', 'lambda_deploy:default']);
+grunt.registerTask('deploy_prod', ['lambda_package', 'lambda_deploy:prod']);
 ```
 
 ## Misc info
@@ -475,7 +540,11 @@ It is recommended that the following policy be applied to the user:
         "lambda:GetFunction",
         "lambda:UploadFunction",
         "lambda:UpdateFunctionCode",
-        "lambda:UpdateFunctionConfiguration"
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:GetAlias",
+        "lambda:UpdateAlias",
+        "lambda:CreateAlias",
+        "lambda:PublishVersion"
       ],
       "Effect": "Allow",
       "Resource": "arn:aws:lambda:*"
@@ -537,3 +606,16 @@ Adding more warnings for various failure cases
 * Including AWS API error message in deployment failure - [pull request by CaseyBurns](https://github.com/Tim-B/grunt-aws-lambda/pull/40)
 * Providing a method to pass AWS credentials in either the Gruntfile or credentials file - [pull request by robbiet480](https://github.com/Tim-B/grunt-aws-lambda/pull/34)
 * Adding support for AWS temporary credentials - [pull request by olih](https://github.com/Tim-B/grunt-aws-lambda/pull/46)
+
+### 0.12.0
+
+* Added package_folder option to lambda_invoke task - [pull request by dcaravana](https://github.com/Tim-B/grunt-aws-lambda/pull/62)
+* Adding optional files to contain JSON objects for clientContext and identity to be passed into the lambda_invoke command - [pull request by Skorch](https://github.com/Tim-B/grunt-aws-lambda/pull/51)
+* Add handler option to lambda_deploy task - [pull request by Rawbz](https://github.com/Tim-B/grunt-aws-lambda/pull/52)
+* Fix lambda_deploy config example - [pull request by pracucci](https://github.com/Tim-B/grunt-aws-lambda/pull/56)
+* Context object methods cleanup - [pull request by ubergoob](https://github.com/Tim-B/grunt-aws-lambda/pull/58), also fixes [issue 54](https://github.com/Tim-B/grunt-aws-lambda/issues/54)
+* When deploy_arn is not defined in the Gruntfile the value is undefined - [pull request by varunvairavan](https://github.com/Tim-B/grunt-aws-lambda/pull/60)
+* Extensive refactoring to improve testability and a new unit test suite
+* Bumped AWS SDK version to 2.2.32
+* Added support for versioning and aliases
+* Added support for excluding the package version from the package artifact name - based on [pull request by leecrossley](https://github.com/Tim-B/grunt-aws-lambda/pull/59)
